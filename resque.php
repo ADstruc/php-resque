@@ -17,8 +17,9 @@ require_once 'lib/Resque.php';
 require_once 'lib/Resque/Worker.php';
 
 $REDIS_BACKEND = getenv('REDIS_BACKEND');
+$REDIS_DATABASE = getenv('REDIS_DATABASE') ?: 0;
 if(!empty($REDIS_BACKEND)) {
-	Resque::setBackend($REDIS_BACKEND);
+	Resque::setBackend($REDIS_BACKEND, $REDIS_DATABASE);
 }
 
 $logLevel = 0;
