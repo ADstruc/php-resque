@@ -185,45 +185,95 @@ class Resque_Worker
 				continue;
 			}
 
-			$this->log('got ' . $job);
-			Resque_Event::trigger('beforeFork', $job);
-			$this->workingOn($job);
-
-			$this->child = $this->fork();
-
-			// Forked and we're the child. Run the job.
-			if($this->child === 0 || $this->child === false) {
-				$status = 'Processing ' . $job->queue . ' since ' . strftime('%F %T');
-				$this->updateProcLine($status);
-				$this->log($status, self::LOG_VERBOSE);
-				$this->perform($job);
-				if($this->child === 0) {
-					exit(0);
-				}
-			}
-
-			if($this->child > 0) {
-				// Parent process, sit and wait
-				$status = 'Forked ' . $this->child . ' at ' . strftime('%F %T');
-				$this->updateProcLine($status);
-				$this->log($status, self::LOG_VERBOSE);
-
-				// Wait until the child process finishes before continuing
-				pcntl_wait($status);
-				$exitStatus = pcntl_wexitstatus($status);
-				if($exitStatus !== 0) {
-					$job->fail(new Resque_Job_DirtyExitException(
-						'Job exited with exit code ' . $exitStatus
-					));
-				}
-			}
-
-			$this->child = null;
-			$this->doneWorking();
+			$this->processJob($job);
 		}
 
 		$this->unregisterWorker();
 	}
+    
+    public function subscribe($channels)
+    {
+        if(!is_array($channels)) {
+            $channels = array($channels);
+        }
+        
+        $this->logLevel = self::LOG_VERBOSE;
+        $this->updateProcLine('Starting');
+		$this->startup();
+
+        $this->log('Subscribing to ' . implode(', ', $channels));
+        Resque::listener()->subscribe($channels);
+		while(true) {
+			if($this->shutdown) {
+				break;
+			}
+            
+            // Listen to the subscribed channels (this blocks until a message is
+            // published)
+            $response = Resque::listener()->listenToSubscription();
+            extract($response);
+            $this->log("Got a message ('$message') on $channel");
+
+			// Attempt to find and reserve a job
+			$job = false;
+			if(!$this->paused) {
+				$job = $this->reserve();
+			}
+            
+            // If another worker picked up the job, continue
+            if(!$job) {
+                $this->log("Didn't find a job in the queue(s)");
+                continue;
+            }
+
+			$this->processJob($job);
+		}
+
+		$this->unregisterWorker();
+    }
+    
+    /**
+     *
+     * @param string $job 
+     */
+    protected function processJob($job)
+    {
+        $this->log('got ' . $job);
+        Resque_Event::trigger('beforeFork', $job);
+        $this->workingOn($job);
+
+        $this->child = $this->fork();
+
+        // Forked and we're the child. Run the job.
+        if($this->child === 0 || $this->child === false) {
+            $status = 'Processing ' . $job->queue . ' since ' . strftime('%F %T');
+            $this->updateProcLine($status);
+            $this->log($status, self::LOG_VERBOSE);
+            $this->perform($job);
+            if($this->child === 0) {
+                exit(0);
+            }
+        }
+
+        if($this->child > 0) {
+            // Parent process, sit and wait
+            $status = 'Forked ' . $this->child . ' at ' . strftime('%F %T');
+            $this->updateProcLine($status);
+            $this->log($status, self::LOG_VERBOSE);
+
+            // Wait until the child process finishes before continuing
+            pcntl_wait($status);
+            $exitStatus = pcntl_wexitstatus($status);
+            if($exitStatus !== 0) {
+                $job->fail(new Resque_Job_DirtyExitException(
+                    'Job exited with exit code ' . $exitStatus
+                ));
+            }
+        }
+
+        $this->child = null;
+        $this->doneWorking();
+    }
 
 	/**
 	 * Process a single job.

@@ -18,6 +18,11 @@ class Resque
 	 * @var Resque_Redis Instance of Resque_Redis that talks to redis.
 	 */
 	public static $redis = null;
+    
+    /**
+	 * @var Resque_Redis Instance of Resque_Redis used by subscription listener.
+	 */
+    public static $listener = null;
 
 	/**
 	 * Given a host/port combination separated by a colon, set it as
@@ -31,14 +36,18 @@ class Resque
 		if(is_array($server)) {
 			require_once dirname(__FILE__) . '/Resque/RedisCluster.php';
 			self::$redis = new Resque_RedisCluster($server);
+            self::$listener = new Resque_RedisCluster($server);
 		}
 		else {
 			list($host, $port) = explode(':', $server);
 			require_once dirname(__FILE__) . '/Resque/Redis.php';
 			self::$redis = new Resque_Redis($host, $port);
+            self::$listener = new Resque_Redis($host, $port);
 		}
 
         self::redis()->select($database);
+        self::listener()->select($database);
+        
         return self::$redis;
 	}
 
@@ -54,6 +63,20 @@ class Resque
 		}
 
 		return self::$redis;
+	}
+    
+    /**
+	 * Return an instance of the Resque_Redis class instantiated for Resque.
+	 *
+	 * @return Resque_Redis Instance of Resque_Redis.
+	 */
+	public static function listener()
+	{
+		if(is_null(self::$listener)) {
+			self::setBackend('localhost:6379');
+		}
+
+		return self::$listener;
 	}
 
 	/**
@@ -109,6 +132,8 @@ class Resque
 		require_once dirname(__FILE__) . '/Resque/Job.php';
 		$result = Resque_Job::create($queue, $class, $args, $trackStatus);
 		if ($result) {
+            self::redis()->publish($queue, $class);
+            
 			Resque_Event::trigger('afterEnqueue', array(
 				'class' => $class,
 				'args' => $args,
