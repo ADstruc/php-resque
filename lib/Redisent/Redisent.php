@@ -164,6 +164,7 @@ if(!class_exists('Redisent')) {
             }
             
             $command = $this->buildCommand('unsubscribe', $channels);
+            $this->writeCommand($command);
             
             $this->__subscribed = false;
             $this->__subscriptions = array();
