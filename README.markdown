@@ -1,3 +1,29 @@
+#Experimental Branch with Pub/Sub support#
+This is a highly experimental branch that should not be used in production
+without extensive testing first. The goal of this branch is to allow Resque  
+workers to respond quickly to incoming requests without having to poll 
+constantly. In order to achieve this, it makes use of Redis' built in pub/sub
+mechanism <http://redis.io/topics/pubsub>. The basic functionality all works,
+however, only minimal testing has been done.
+
+##Modifications##
+To facilitate this, the internal copy of Redisent has been extended to support
+subscribe/unsubscribe with a blocking listenToSubscription method that blocks 
+until it receives a published message from Redis. The poll mechanism has been
+replaced by this blocking subscription method (as can be seen in 
+resque-pubsub.php). The enqueue method now publishes out to the same channel 
+name as the queue it enqueues the work item in. Work items are still delivered 
+via the normal Resque queue mechanism.
+
+##Todos##
+* Test subscriptions to multiple channels (queues)
+* Test with multiple workers
+* Test with multiple publishers
+* Investigate using pub/sub messaging to reduce potential contention between workers 
+* Make switching between traditional and pub/sub workers done via configuration
+
+===========================================
+
 php-resque: PHP Resque Worker (and Enqueue)
 ===========================================
 
