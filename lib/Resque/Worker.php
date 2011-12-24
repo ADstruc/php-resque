@@ -191,6 +191,10 @@ class Resque_Worker
 		$this->unregisterWorker();
 	}
     
+    /**
+     *
+     * @param array|string $channels 
+     */
     public function subscribe($channels)
     {
         if(!is_array($channels)) {
@@ -234,7 +238,7 @@ class Resque_Worker
     
     /**
      *
-     * @param string $job 
+     * @param Resque_Job $job 
      */
     protected function processJob($job)
     {
