@@ -22,8 +22,6 @@ via the normal Resque queue mechanism.
 * Investigate using pub/sub messaging to reduce potential contention between workers 
 * Make switching between traditional and pub/sub workers done via configuration
 
-===========================================
-
 php-resque: PHP Resque Worker (and Enqueue)
 ===========================================
 
