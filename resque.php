@@ -48,6 +48,8 @@ if ($PIDFILE) {
     file_put_contents($PIDFILE, getmypid()) or
         die('Could not write PID information to ' . $PIDFILE);
 }
-fwrite(STDOUT, "*** Listening to $REDIS_BACKEND/$REDIS_DATABASE\n");
-fwrite(STDOUT, "*** Starting worker $worker\n");
+
+$msg = sprintf('*** Starting worker %s listening to %s/%d', $worker, $REDIS_BACKEND, $REDIS_DATABASE);
+
+fwrite(STDOUT, $msg . "\n");
 $worker->work($interval);
